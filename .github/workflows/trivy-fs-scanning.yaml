@@ -34,6 +34,12 @@ jobs:
       with:
         ref: refs/heads/${{ matrix.branch }}  # using explicit refs syntax due to requirements of upload-sarif action
 
+    - name: Sanitize branch name for filenames
+      id: sanitize
+      run: |
+        SANITIZED_BRANCH=$(echo "${{ matrix.branch }}" | tr '/' '-')
+        echo "branch_name=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+
     - name: Run Trivy vulnerability scanner in fs mode
       uses: aquasecurity/trivy-action@0.33.1
       with:
@@ -42,18 +48,18 @@ jobs:
         severity: 'CRITICAL,HIGH,MEDIUM'
         limit-severities-for-sarif: true
         ignore-unfixed: true
-        output: 'trivy-fs-scan-results-${{ matrix.branch }}.sarif'
+        output: 'trivy-fs-scan-results-${{ steps.sanitize.outputs.branch_name }}.sarif'
 
     - name: Add branch metadata to SARIF
       run: |
         # Modify ruleId to include branch information for identification
         jq '.runs[0].results[] |= (.ruleId = "trivy/${{ matrix.branch }}/" + .ruleId)' \
-           trivy-fs-scan-results-${{ matrix.branch }}.sarif > trivy-fs-scan-results-${{ matrix.branch }}-processed.sarif
-        mv trivy-fs-scan-results-${{ matrix.branch }}-processed.sarif trivy-fs-scan-results-${{ matrix.branch }}.sarif
+           trivy-fs-scan-results-${{ steps.sanitize.outputs.branch_name }}.sarif > trivy-fs-scan-results-${{ steps.sanitize.outputs.branch_name }}-processed.sarif
+        mv trivy-fs-scan-results-${{ steps.sanitize.outputs.branch_name }}-processed.sarif trivy-fs-scan-results-${{ steps.sanitize.outputs.branch_name }}.sarif
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       with:
-          sarif_file: 'trivy-fs-scan-results-${{ matrix.branch }}.sarif'
+          sarif_file: 'trivy-fs-scan-results-${{ steps.sanitize.outputs.branch_name }}.sarif'
           ref: ${{ steps.checkout.outputs.ref }}
           sha: ${{ steps.checkout.outputs.commit }}
