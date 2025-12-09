@@ -13,6 +13,7 @@ on:
         options:
           - notebooks-v1
           - notebooks-v2
+          - 782/fix-pvcviewer-golang-x-net-cve
 
 permissions:
   actions: read
